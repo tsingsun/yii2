@@ -82,7 +82,18 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
      * @since 2.0.8
      */
     const EVENT_AFTER_REFRESH = 'afterRefresh';
-
+    /**
+     * The insert operation. This is mainly used when overriding [[transactions()]] to specify which operations are transactional.
+     */
+    const SCENARIO_INSERT = 'insert';
+    /**
+     * The update operation. This is mainly used when overriding [[transactions()]] to specify which operations are transactional.
+     */
+    const SCENARIO_UPDATE = 'update';
+    /**
+     * The delete operation. This is mainly used when overriding [[transactions()]] to specify which operations are transactional.
+     */
+    const SCENARIO_DELETE = 'delete';
     /**
      * @var array attribute values indexed by attribute names
      */
@@ -1042,6 +1053,59 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
     {
         $this->trigger(self::EVENT_AFTER_REFRESH);
     }
+
+    /**
+     * 获取场景，根据
+     * @param null $scenarios
+     * @return string
+     */
+    public function getScenario($scenarios = null)
+    {
+        $scenario = parent::getScenario();
+        if($scenario == self::SCENARIO_DEFAULT){
+            $scenarios = $scenarios ? $scenarios : $this->scenarios();
+            //if user use default,scenario become database operation scenario
+            if ($this->getIsNewRecord() && isset($scenarios[self::SCENARIO_INSERT])) {
+                $this->setScenario(self::SCENARIO_INSERT);
+            } elseif (isset($scenarios[self::SCENARIO_UPDATE])) {
+                $this->setScenario(self::SCENARIO_UPDATE);
+            }
+        }
+        return $scenario;
+    }
+
+
+    /**
+     * @inheritdoc
+     */
+    public function validate($attributeNames = null, $clearErrors = true)
+    {
+        if ($clearErrors) {
+            $this->clearErrors();
+        }
+
+        if (!$this->beforeValidate()) {
+            return false;
+        }
+
+        $scenarios = $this->scenarios();
+        $scenario = $this->getScenario($scenarios);
+
+        if (!isset($scenarios[$scenario])) {
+            throw new InvalidParamException("Unknown scenario: $scenario");
+        }
+
+        if ($attributeNames === null) {
+            $attributeNames = $this->activeAttributes();
+        }
+
+        foreach ($this->getActiveValidators() as $validator) {
+            $validator->validateAttributes($this, $attributeNames);
+        }
+
+        return !$this->hasErrors();
+    }
+
 
     /**
      * Returns a value indicating whether the given active record is the same as the current one.
