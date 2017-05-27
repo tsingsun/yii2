@@ -82,18 +82,7 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
      * @since 2.0.8
      */
     const EVENT_AFTER_REFRESH = 'afterRefresh';
-    /**
-     * The insert operation. This is mainly used when overriding [[transactions()]] to specify which operations are transactional.
-     */
-    const SCENARIO_INSERT = 'insert';
-    /**
-     * The update operation. This is mainly used when overriding [[transactions()]] to specify which operations are transactional.
-     */
-    const SCENARIO_UPDATE = 'update';
-    /**
-     * The delete operation. This is mainly used when overriding [[transactions()]] to specify which operations are transactional.
-     */
-    const SCENARIO_DELETE = 'delete';
+
     /**
      * @var array attribute values indexed by attribute names
      */
@@ -107,7 +96,10 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
      * @var array related models indexed by the relation names
      */
     private $_related = [];
-
+    /**
+     * @var array scenarios cached
+     */
+    private $_scenarios = [];
 
     /**
      * @inheritdoc
@@ -988,7 +980,7 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
      *     }
      *
      *     // ...custom code here...
-           return true;
+     * return true;
      * }
      * ```
      *
@@ -1050,59 +1042,6 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
     {
         $this->trigger(self::EVENT_AFTER_REFRESH);
     }
-
-    /**
-     * 获取场景，根据
-     * @param null $scenarios
-     * @return string
-     */
-    public function getScenario($scenarios = null)
-    {
-        $scenario = parent::getScenario();
-        if($scenario == self::SCENARIO_DEFAULT){
-            $scenarios = $scenarios ? $scenarios : $this->scenarios();
-            //if user use default,scenario become database operation scenario
-            if ($this->getIsNewRecord() && isset($scenarios[self::SCENARIO_INSERT])) {
-                $this->setScenario(self::SCENARIO_INSERT);
-            } elseif (isset($scenarios[self::SCENARIO_UPDATE])) {
-                $this->setScenario(self::SCENARIO_UPDATE);
-            }
-        }
-        return $scenario;
-    }
-
-
-    /**
-     * @inheritdoc
-     */
-    public function validate($attributeNames = null, $clearErrors = true)
-    {
-        if ($clearErrors) {
-            $this->clearErrors();
-        }
-
-        if (!$this->beforeValidate()) {
-            return false;
-        }
-
-        $scenarios = $this->scenarios();
-        $scenario = $this->getScenario($scenarios);
-
-        if (!isset($scenarios[$scenario])) {
-            throw new InvalidParamException("Unknown scenario: $scenario");
-        }
-
-        if ($attributeNames === null) {
-            $attributeNames = $this->activeAttributes();
-        }
-
-        foreach ($this->getActiveValidators() as $validator) {
-            $validator->validateAttributes($this, $attributeNames);
-        }
-
-        return !$this->hasErrors();
-    }
-
 
     /**
      * Returns a value indicating whether the given active record is the same as the current one.
@@ -1726,5 +1665,95 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
         } else {
             unset($this->$offset);
         }
+    }
+
+    /**
+     * Returns a list of scenarios and the corresponding active attributes.
+     * An active attribute is one that is subject to validation in the current scenario.
+     * The returned array should be in the following format:
+     *
+     * ```php
+     * [
+     *     'scenario1' => ['attribute11', 'attribute12', ...],
+     *     'scenario2' => ['attribute21', 'attribute22', ...],
+     *     ...
+     * ]
+     * ```
+     *
+     * By default, an active attribute is considered safe and can be massively assigned.
+     * If an attribute should NOT be massively assigned (thus considered unsafe),
+     * please prefix the attribute with an exclamation character (e.g. `'!rank'`).
+     *
+     * The default implementation of this method will return all scenarios found in the [[rules()]]
+     * declaration. A special scenario named [[SCENARIO_DEFAULT]] will contain all attributes
+     * found in the [[rules()]]. Each scenario will be associated with the attributes that
+     * are being validated by the validation rules that apply to the scenario.
+     * @param bool $reload if reload from rules
+     * @return array a list of scenarios and the corresponding active attributes.
+     */
+    public function scenarios($reload = false)
+    {
+        if (!empty($this->_scenarios)) {
+            return $this->_scenarios;
+        }
+        $scenarios = [self::SCENARIO_DEFAULT => [], 'insert' => [], 'update' => [], 'delete' => []];
+        foreach ($this->getValidators() as $validator) {
+            foreach ($validator->on as $scenario) {
+                $scenarios[$scenario] = [];
+            }
+            foreach ($validator->except as $scenario) {
+                $scenarios[$scenario] = [];
+            }
+        }
+        $names = array_keys($scenarios);
+
+        foreach ($this->getValidators() as $validator) {
+            if (empty($validator->on) && empty($validator->except)) {
+                foreach ($names as $name) {
+                    foreach ($validator->attributes as $attribute) {
+                        $scenarios[$name][$attribute] = true;
+                    }
+                }
+            } elseif (empty($validator->on)) {
+                foreach ($names as $name) {
+                    if (!in_array($name, $validator->except, true)) {
+                        foreach ($validator->attributes as $attribute) {
+                            $scenarios[$name][$attribute] = true;
+                        }
+                    }
+                }
+            } else {
+                foreach ($validator->on as $name) {
+                    foreach ($validator->attributes as $attribute) {
+                        $scenarios[$name][$attribute] = true;
+                    }
+                }
+            }
+        }
+
+        foreach ($scenarios as $scenario => $attributes) {
+            if (!empty($attributes)) {
+                $scenarios[$scenario] = array_keys($attributes);
+            }
+        }
+        $this->_scenarios = $scenarios;
+        return $scenarios;
+    }
+
+    public function getScenario()
+    {
+        $scenario = parent::getScenario();
+        if($scenario == self::SCENARIO_DEFAULT){
+            $scenarios = $this->scenarios();
+            //if user use default,scenario become database operation scenario
+            if ($this->getIsNewRecord() && isset($scenarios['insert'])) {
+                $scenario = 'insert';
+
+            } elseif (isset($scenarios['update'])) {
+                $scenario = 'update';
+            }
+            $this->setScenario($scenario);
+        }
+        return $scenario;
     }
 }
