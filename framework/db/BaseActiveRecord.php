@@ -1688,10 +1688,10 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
      * declaration. A special scenario named [[SCENARIO_DEFAULT]] will contain all attributes
      * found in the [[rules()]]. Each scenario will be associated with the attributes that
      * are being validated by the validation rules that apply to the scenario.
-     * @param bool $reload if reload from rules
+     *
      * @return array a list of scenarios and the corresponding active attributes.
      */
-    public function scenarios($reload = false)
+    public function scenarios()
     {
         if (!empty($this->_scenarios)) {
             return $this->_scenarios;
