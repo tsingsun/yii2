@@ -2,4 +2,3 @@
 
 - Enh 调整BaseActiveRecord对旧版本的处理方式，记录更改的记录属性而非保留全部旧属性,减少内存消耗
 - Enh BaseActiveRecord在场景初始化时,除了default场景外,增加insert，update，delete3个场景
-- BUG ActiveQeuryTrait在采用indexby时，当遇到对象字段时,如mongodb的的ObjectId时出错
