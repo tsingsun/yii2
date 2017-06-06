@@ -156,7 +156,7 @@ class Connection extends Component
      * Please refer to the [PHP manual](http://php.net/manual/en/pdo.construct.php) on
      * the format of the DSN string.
      *
-     * For [SQLite](http://php.net/manual/en/ref.pdo-sqlite.connection.php) you may use a path alias
+     * For [SQLite](http://php.net/manual/en/ref.pdo-sqlite.connection.php) you may use a [path alias](guide:concept-aliases)
      * for specifying the database path, e.g. `sqlite:@app/data/db.sql`.
      *
      * @see charset
@@ -389,6 +389,7 @@ class Connection extends Component
      * @see enableLogging
      */
     public $enableProfiling = true;
+
     /**
      * @var Transaction the currently active transaction
      */
@@ -1090,8 +1091,11 @@ class Connection extends Component
 
         $this->_master = false;
         $this->_slave = false;
-        $this->pdo = null;
         $this->_schema = null;
         $this->_transaction = null;
+        if (strncmp($this->dsn, 'sqlite::memory:', 15) !== 0) {
+            // reset PDO connection, unless its sqlite in-memory, which can only have one connection
+            $this->pdo = null;
+        }
     }
 }
