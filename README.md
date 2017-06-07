@@ -16,7 +16,16 @@ Either run
 
 ```
 composer global require "fxp/composer-asset-plugin:^1.3.1"
-composer require yiisoft/yii2
+```
+
+then set repository in composer.json
+```json
+"repositories":[
+  {
+    "type":"git",
+    "url":"https://github.com/tsingsun/yii2-framework.git"
+  }
+]
 ```
 
 or add
