@@ -8,6 +8,7 @@
 namespace yii\db\mysql;
 
 use yii\base\InvalidParamException;
+use yii\db\CursorBasedExpression;
 use yii\db\Exception;
 use yii\db\Expression;
 
@@ -159,6 +160,39 @@ class QueryBuilder extends \yii\db\QueryBuilder
     public function checkIntegrity($check = true, $schema = '', $table = '')
     {
         return 'SET FOREIGN_KEY_CHECKS = ' . ($check ? 1 : 0);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function buildOrderByAndLimit($sql, $orderBy, $limit, $offset)
+    {
+        $orderBy = $this->buildOrderBy($orderBy);
+        if ($orderBy !== '') {
+            $sql .= $this->separator . $orderBy;
+        }
+
+        $paginzation = $offset instanceof CursorBasedExpression;
+
+        $limit = $this->buildLimit($limit, $paginzation ? 0 : $offset);
+        if ($offset instanceof CursorBasedExpression) {
+            $cursorField = $offset->cursorFieldName;
+            if ($offset->isAfterCursor) {
+                $filters = $cursorField . '>' . $offset->cursor;
+            } else {
+                $filters = $cursorField . '<' . $offset->cursor . 'ORDER BY ' . $cursorField . ' DESC';
+            }
+            $sql = <<<EOD
+SELECT * FROM (SELECT t.*,@rownum := @rownum + 1 AS $cursorField FROM ($sql) t,(SELECT @rownum := 0) r) a
+WHERE $filters
+EOD;
+        }
+
+        if ($limit !== '') {
+            $sql .= $this->separator . $limit;
+        }
+
+        return $sql;
     }
 
     /**

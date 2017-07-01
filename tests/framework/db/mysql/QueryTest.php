@@ -7,6 +7,7 @@
 
 namespace yiiunit\framework\db\mysql;
 
+use yii\db\CursorBasedExpression;
 use yii\db\Expression;
 use yii\db\Query;
 
@@ -44,6 +45,24 @@ class QueryTest extends \yiiunit\framework\db\QueryTest
 
         $this->assertCount(2, $result);
 
+        $this->assertNotContains(1, $result);
+        $this->assertContains(2, $result);
+        $this->assertContains(3, $result);
+    }
+
+    public function testLimitOffsetWithCursorBasedExpression()
+    {
+        $query = (new Query())->from('customer')->select('id')->orderBy('id');
+        // In MySQL limit and offset arguments must both be nonnegative integer constant
+        $query
+            ->limit(new Expression('2'))
+            ->offset(new CursorBasedExpression(1));
+
+        $result = $query->column($this->getConnection());
+
+        $this->assertCount(2, $result);
+        //'10.1.10-MariaDB' has a bug.SELECT * FROM (SELECT `id` FROM `customer` ORDER BY id) t will return 2,1,3
+        //in mysql return 1,2,3
         $this->assertNotContains(1, $result);
         $this->assertContains(2, $result);
         $this->assertContains(3, $result);
