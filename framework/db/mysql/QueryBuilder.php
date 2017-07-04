@@ -180,7 +180,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
             if ($offset->isAfterCursor) {
                 $filters = $cursorField . '>' . $offset->cursor;
             } else {
-                $filters = $cursorField . '<' . $offset->cursor . 'ORDER BY ' . $cursorField . ' DESC';
+                $filters = $cursorField . '<' . $offset->cursor . ' ORDER BY ' . $cursorField . ' DESC';
             }
             $sql = <<<EOD
 SELECT * FROM (SELECT t.*,@rownum := @rownum + 1 AS $cursorField FROM ($sql) t,(SELECT @rownum := 0) r) a
