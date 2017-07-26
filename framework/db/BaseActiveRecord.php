@@ -303,8 +303,8 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
     public function __set($name, $value)
     {
         if ($this->hasAttribute($name)) {
-            $this->markAttributeDirty($name);
             $this->_attributes[$name] = $value;
+            $this->markAttributeDirty($name);
         } else {
             parent::__set($name, $value);
         }
