@@ -828,7 +828,6 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
                 } else {
                     $this->_attributes[$name] += $value;
                 }
-                $this->_oldAttributes[$name] = $this->_attributes[$name];
             }
             return true;
         } else {
