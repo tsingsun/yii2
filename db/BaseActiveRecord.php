@@ -1704,7 +1704,7 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
         if (!empty($this->_scenarios)) {
             return $this->_scenarios;
         }
-        $scenarios = [self::SCENARIO_DEFAULT => [], 'insert' => [], 'update' => [], 'delete' => []];
+        $scenarios = [self::SCENARIO_DEFAULT => [], 0x01 => [], 0x02 => [], 0x04 => []];
         foreach ($this->getValidators() as $validator) {
             foreach ($validator->on as $scenario) {
                 $scenarios[$scenario] = [];
@@ -1754,11 +1754,11 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
         if($scenario == self::SCENARIO_DEFAULT){
             $scenarios = $this->scenarios();
             //if user use default,scenario become database operation scenario
-            if ($this->getIsNewRecord() && isset($scenarios['insert'])) {
-                $scenario = 'insert';
+            if ($this->getIsNewRecord() && isset($scenarios[0x01])) {
+                $scenario = 0x01;
 
-            } elseif (isset($scenarios['update'])) {
-                $scenario = 'update';
+            } elseif (isset($scenarios[0x02])) {
+                $scenario = 0x02;
             }
             $this->setScenario($scenario);
         }
