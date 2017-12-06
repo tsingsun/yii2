@@ -1,7 +1,7 @@
 Yii PHP Framework Version 2
 ===========================
 
-This is the core framework code of [Yii 2](https://github.com/tsingsun/yii2#readme).
+This is the core framework code of [Yii 2](https://github.com/yiisoft/yii2#readme).
 
 This repository is a read-only git subsplit of <https://github.com/yiisoft/yii2>.
 Please submit issue reports and pull requests to the main repository.
@@ -15,17 +15,8 @@ The preferred way to install the Yii framework is through [composer](http://getc
 Either run
 
 ```
-composer global require "fxp/composer-asset-plugin:^1.3.1"
-```
-
-then set repository in composer.json
-```json
-"repositories":[
-  {
-    "type":"git",
-    "url":"https://github.com/tsingsun/yii2-framework.git"
-  }
-]
+composer global require "fxp/composer-asset-plugin:^1.4.1"
+composer require yiisoft/yii2
 ```
 
 or add

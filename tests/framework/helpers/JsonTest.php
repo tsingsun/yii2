@@ -30,7 +30,7 @@ class JsonTest extends TestCase
     public function testEncode()
     {
         // Arrayable data encoding
-        $dataArrayable = $this->getMock('yii\\base\\Arrayable');
+        $dataArrayable = $this->getMockBuilder('yii\\base\\Arrayable')->getMock();
         $dataArrayable->method('toArray')->willReturn([]);
         $actual = Json::encode($dataArrayable);
         $this->assertSame('{}', $actual);
@@ -159,7 +159,7 @@ class JsonTest extends TestCase
         // empty value
         $json = '';
         $actual = Json::decode($json);
-        $this->assertSame(null, $actual);
+        $this->assertNull($actual);
 
         // basic data decoding
         $json = '"1"';

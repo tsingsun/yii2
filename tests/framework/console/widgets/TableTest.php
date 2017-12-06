@@ -25,7 +25,7 @@ class TableTest extends TestCase
     {
         $table = new Table();
 
-        $expected = <<<EXPECTED
+        $expected = <<<'EXPECTED'
 ╔═══════════════╤═══════════════╤═══════════════╗
 ║ test1         │ test2         │ test3         ║
 ╟───────────────┼───────────────┼───────────────╢
@@ -50,7 +50,7 @@ EXPECTED;
 
         // test fullwidth chars
         // @see https://en.wikipedia.org/wiki/Halfwidth_and_fullwidth_forms
-        $expected = <<<EXPECTED
+        $expected = <<<'EXPECTED'
 ╔═════════════════╤═════════════════╤═════════════════╗
 ║ test1           │ test2           │ ｔｅｓｔ３      ║
 ╟─────────────────┼─────────────────┼─────────────────╢
@@ -73,7 +73,7 @@ EXPECTED;
     {
         $table = new Table();
 
-        $expected = <<<EXPECTED
+        $expected = <<<'EXPECTED'
 ╔═══════════════╤═══════════════╤══════════════╗
 ║ test1         │ test2         │ test3        ║
 ╟───────────────┼───────────────┼──────────────╢
@@ -97,7 +97,7 @@ EXPECTED;
     {
         $table = new Table();
 
-        $expected = <<<EXPECTED
+        $expected = <<<'EXPECTED'
 ╔═══════════════╤═══════════════╤══════════════╗
 ║ test1         │ test2         │ test3        ║
 ╟───────────────┼───────────────┼──────────────╢
@@ -121,7 +121,7 @@ EXPECTED;
     {
         $table = new Table();
 
-        $expected = <<<EXPECTED
+        $expected = <<<'EXPECTED'
 *++++++++++++++++*+++++++++++++++++*++++++++++++++++++*
 / test1          / test2           / test3            /
 *++++++++++++++++*+++++++++++++++++*++++++++++++++++++*
@@ -145,10 +145,10 @@ EXPECTED;
             ])->setScreenWidth(200)->run()
         );
     }
-    
+
     public function testTableWidgetSyntax()
     {
-        $expected = <<<EXPECTED
+        $expected = <<<'EXPECTED'
 ╔═══════════════╤═══════════════╤═══════════════╗
 ║ test1         │ test2         │ test3         ║
 ╟───────────────┼───────────────┼───────────────╢
@@ -169,6 +169,61 @@ EXPECTED;
                 ],
                 'screenWidth' => 200,
             ])
+        );
+    }
+
+    public function testShortRow()
+    {
+        $table = new Table();
+
+        $expected = <<<'EXPECTED'
+╔═══════════════╤═══════════════╤═══════════════╗
+║ test1         │ test2         │ test3         ║
+╟───────────────┼───────────────┼───────────────╢
+║ testcontent1  │ testcontent2  │               ║
+╟───────────────┼───────────────┼───────────────╢
+║ testcontent21 │ testcontent22 │               ║
+╟───────────────┼───────────────┼───────────────╢
+║ testcontent31 │               │               ║
+╟───────────────┼───────────────┼───────────────╢
+║ testcontent41 │               │ testcontent43 ║
+╟───────────────┼───────────────┼───────────────╢
+║               │               │ testcontent53 ║
+╚═══════════════╧═══════════════╧═══════════════╝
+
+EXPECTED;
+
+        $this->assertEqualsWithoutLE($expected, $table->setHeaders(['test1', 'test2', 'test3'])
+            ->setRows([
+                ['testcontent1', 'testcontent2'],
+                ['testcontent21', 'testcontent22', null],
+                ['testcontent31'],
+                ['testcontent41', null, 'testcontent43'],
+                [null, null, 'testcontent53'],
+            ])->setScreenWidth(200)->run()
+        );
+    }
+
+    public function testEmptyRow()
+    {
+        $table = new Table();
+
+        $expected = <<<'EXPECTED'
+╔═══════╤═══════╤═══════╗
+║ test1 │ test2 │ test3 ║
+╟───────┼───────┼───────╢
+║       │       │       ║
+╟───────┼───────┼───────╢
+║       │       │       ║
+╚═══════╧═══════╧═══════╝
+
+EXPECTED;
+
+        $this->assertEqualsWithoutLE($expected, $table->setHeaders(['test1', 'test2', 'test3'])
+            ->setRows([
+                [null, null, null],
+                [],
+            ])->setScreenWidth(200)->run()
         );
     }
 }
