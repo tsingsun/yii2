@@ -7,7 +7,7 @@
 
 namespace yii\db;
 
-use yii\base\Event;
+use Yii;
 use yii\base\InvalidCallException;
 use yii\base\InvalidConfigException;
 use yii\base\InvalidParamException;
@@ -103,7 +103,7 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
 
     /**
      * @inheritdoc
-     * @return static ActiveRecord instance matching the condition, or `null` if nothing matches.
+     * @return static|null ActiveRecord instance matching the condition, or `null` if nothing matches.
      */
     public static function findOne($condition)
     {
@@ -146,6 +146,7 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
 
     /**
      * Updates the whole table using the provided attribute values and conditions.
+     *
      * For example, to change the status to be 1 for all customers whose status is 2:
      *
      * ```php
@@ -165,6 +166,7 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
 
     /**
      * Updates the whole table using the provided counter changes and conditions.
+     *
      * For example, to increment all customers' age by 1,
      *
      * ```php
@@ -281,17 +283,17 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
             return $this->_attributes[$name];
         } elseif ($this->hasAttribute($name)) {
             return null;
-        } else {
-            if (isset($this->_related[$name]) || array_key_exists($name, $this->_related)) {
-                return $this->_related[$name];
-            }
-            $value = parent::__get($name);
-            if ($value instanceof ActiveQueryInterface) {
-                return $this->_related[$name] = $value->findFor($name, $this);
-            } else {
-                return $value;
-            }
         }
+
+        if (isset($this->_related[$name]) || array_key_exists($name, $this->_related)) {
+            return $this->_related[$name];
+        }
+        $value = parent::__get($name);
+        if ($value instanceof ActiveQueryInterface) {
+            return $this->_related[$name] = $value->findFor($name, $this);
+        }
+
+        return $value;
     }
 
     /**
@@ -584,12 +586,12 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
         if (isset($this->_attributes[$name], $this->_changeAttributes[$name])) {
             if ($identical) {
                 return $this->_attributes[$name] !== $this->_changeAttributes[$name];
-            } else {
-                return $this->_attributes[$name] != $this->_changeAttributes[$name];
             }
-        } else {
-            return isset($this->_changeAttributes[$name]);
+
+            return $this->_attributes[$name] != $this->_changeAttributes[$name];
         }
+
+        return isset($this->_changeAttributes[$name]);
     }
 
     /**
@@ -830,9 +832,9 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
                 }
             }
             return true;
-        } else {
-            return false;
         }
+
+        return false;
     }
 
     /**
@@ -1026,6 +1028,18 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
     {
         /* @var $record BaseActiveRecord */
         $record = static::findOne($this->getPrimaryKey(true));
+        return $this->refreshInternal($record);
+    }
+
+    /**
+     * Repopulates this active record with the latest data from a newly fetched instance.
+     * @param BaseActiveRecord $record the record to take attributes from.
+     * @return bool whether refresh was successful.
+     * @see refresh()
+     * @since 2.0.13
+     */
+    protected function refreshInternal($record)
+    {
         if ($record === null) {
             return false;
         }
@@ -1084,14 +1098,14 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
         $keys = $this->primaryKey();
         if (!$asArray && count($keys) === 1) {
             return isset($this->_attributes[$keys[0]]) ? $this->_attributes[$keys[0]] : null;
-        } else {
-            $values = [];
-            foreach ($keys as $name) {
-                $values[$name] = isset($this->_attributes[$name]) ? $this->_attributes[$name] : null;
-            }
-
-            return $values;
         }
+
+        $values = [];
+        foreach ($keys as $name) {
+            $values[$name] = isset($this->_attributes[$name]) ? $this->_attributes[$name] : null;
+        }
+
+        return $values;
     }
 
     /**
@@ -1122,18 +1136,17 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
                 : isset($this->_attributes[$keys[0]])
                     ? $this->_attributes[$keys[0]]
                     : null;
-        } else {
-            $values = [];
-            foreach ($keys as $name) {
-                $values[$name] = isset($this->_changeAttributes[$name])
-                    ? $this->_changeAttributes[$name]
-                    : isset($this->_attributes[$keys[0]])
-                        ? $this->_attributes[$name]
-                        : null;
-            }
-
-            return $values;
         }
+        $values = [];
+        foreach ($keys as $name) {
+            $values[$name] = isset($this->_changeAttributes[$name])
+                ? $this->_changeAttributes[$name]
+                : isset($this->_attributes[$keys[0]])
+                    ? $this->_attributes[$name]
+                    : null;
+        }
+
+        return $values;
     }
 
     /**
@@ -1624,7 +1637,9 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
                     } catch (InvalidParamException $e) {
                         return '';
                     }
-                    $relatedModel = new $relation->modelClass();
+                    /* @var $modelClass ActiveRecordInterface */
+                    $modelClass = $relation->modelClass;
+                    $relatedModel = $modelClass::instance();
                 }
             }
 
@@ -1633,6 +1648,7 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
                 return $hints[$neededAttribute];
             }
         }
+
         return '';
     }
 
