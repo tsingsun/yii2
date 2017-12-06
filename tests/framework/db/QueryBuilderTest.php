@@ -41,6 +41,8 @@ abstract class QueryBuilderTest extends DatabaseTestCase
     /**
      * @throws \Exception
      * @return QueryBuilder
+     * @param bool $reset
+     * @param bool $open
      */
     protected function getQueryBuilder($reset = true, $open = false)
     {
@@ -66,8 +68,8 @@ abstract class QueryBuilderTest extends DatabaseTestCase
     }
 
     /**
-     * this is not used as a dataprovider for testGetColumnType to speed up the test
-     * when used as dataprovider every single line will cause a reconnect with the database which is not needed here
+     * This is not used as a dataprovider for testGetColumnType to speed up the test
+     * when used as dataprovider every single line will cause a reconnect with the database which is not needed here.
      */
     public function columnTypes()
     {
@@ -1154,6 +1156,7 @@ abstract class QueryBuilderTest extends DatabaseTestCase
         foreach ($conditions as $i => $condition) {
             $conditions[$i][1] = $this->replaceQuotes($condition[1]);
         }
+
         return $conditions;
     }
 
@@ -1202,11 +1205,15 @@ abstract class QueryBuilderTest extends DatabaseTestCase
         foreach ($conditions as $i => $condition) {
             $conditions[$i][1] = $this->replaceQuotes($condition[1]);
         }
+
         return $conditions;
     }
 
     /**
      * @dataProvider conditionProvider
+     * @param array $condition
+     * @param string $expected
+     * @param array $expectedParams
      */
     public function testBuildCondition($condition, $expected, $expectedParams)
     {
@@ -1218,6 +1225,9 @@ abstract class QueryBuilderTest extends DatabaseTestCase
 
     /**
      * @dataProvider filterConditionProvider
+     * @param array $condition
+     * @param string $expected
+     * @param array $expectedParams
      */
     public function testBuildFilterCondition($condition, $expected, $expectedParams)
     {
@@ -1227,34 +1237,218 @@ abstract class QueryBuilderTest extends DatabaseTestCase
         $this->assertEquals($expectedParams, $params);
     }
 
-    public function testAddDropPrimaryKey()
+    public function primaryKeysProvider()
     {
-        $tableName = 'constraints';
-        $pkeyName = $tableName . '_pkey';
+        $tableName = 'T_constraints_1';
+        $name = 'CN_pk';
+        return [
+            'drop' => [
+                "ALTER TABLE {{{$tableName}}} DROP CONSTRAINT [[$name]]",
+                function (QueryBuilder $qb) use ($tableName, $name) {
+                    return $qb->dropPrimaryKey($name, $tableName);
+                },
+            ],
+            'add' => [
+                "ALTER TABLE {{{$tableName}}} ADD CONSTRAINT [[$name]] PRIMARY KEY ([[C_id_1]])",
+                function (QueryBuilder $qb) use ($tableName, $name) {
+                    return $qb->addPrimaryKey($name, $tableName, 'C_id_1');
+                },
+            ],
+            'add (2 columns)' => [
+                "ALTER TABLE {{{$tableName}}} ADD CONSTRAINT [[$name]] PRIMARY KEY ([[C_id_1]], [[C_id_2]])",
+                function (QueryBuilder $qb) use ($tableName, $name) {
+                    return $qb->addPrimaryKey($name, $tableName, 'C_id_1, C_id_2');
+                },
+            ],
+        ];
+    }
 
-        // ADD
-        $qb = $this->getQueryBuilder();
-        $qb->db->createCommand()->addPrimaryKey($pkeyName, $tableName, ['id'])->execute();
-        $tableSchema = $qb->db->getSchema()->getTableSchema($tableName);
-        $this->assertCount(1, $tableSchema->primaryKey);
+    /**
+     * @dataProvider primaryKeysProvider
+     * @param string $sql
+     */
+    public function testAddDropPrimaryKey($sql, \Closure $builder)
+    {
+        $this->assertSame($this->getConnection(false)->quoteSql($sql), $builder($this->getQueryBuilder(false)));
+    }
 
-        // DROP
-        $qb->db->createCommand()->dropPrimaryKey($pkeyName, $tableName)->execute();
-        $qb = $this->getQueryBuilder(); // resets the schema
-        $tableSchema = $qb->db->getSchema()->getTableSchema($tableName);
-        $this->assertCount(0, $tableSchema->primaryKey);
+    public function foreignKeysProvider()
+    {
+        $tableName = 'T_constraints_3';
+        $name = 'CN_constraints_3';
+        $pkTableName = 'T_constraints_2';
+        return [
+            'drop' => [
+                "ALTER TABLE {{{$tableName}}} DROP CONSTRAINT [[$name]]",
+                function (QueryBuilder $qb) use ($tableName, $name) {
+                    return $qb->dropForeignKey($name, $tableName);
+                },
+            ],
+            'add' => [
+                "ALTER TABLE {{{$tableName}}} ADD CONSTRAINT [[$name]] FOREIGN KEY ([[C_fk_id_1]]) REFERENCES {{{$pkTableName}}} ([[C_id_1]]) ON DELETE CASCADE ON UPDATE CASCADE",
+                function (QueryBuilder $qb) use ($tableName, $name, $pkTableName) {
+                    return $qb->addForeignKey($name, $tableName, 'C_fk_id_1', $pkTableName, 'C_id_1', 'CASCADE', 'CASCADE');
+                },
+            ],
+            'add (2 columns)' => [
+                "ALTER TABLE {{{$tableName}}} ADD CONSTRAINT [[$name]] FOREIGN KEY ([[C_fk_id_1]], [[C_fk_id_2]]) REFERENCES {{{$pkTableName}}} ([[C_id_1]], [[C_id_2]]) ON DELETE CASCADE ON UPDATE CASCADE",
+                function (QueryBuilder $qb) use ($tableName, $name, $pkTableName) {
+                    return $qb->addForeignKey($name, $tableName, 'C_fk_id_1, C_fk_id_2', $pkTableName, 'C_id_1, C_id_2', 'CASCADE', 'CASCADE');
+                },
+            ],
+        ];
+    }
 
-        // ADD (2 columns)
-        $qb = $this->getQueryBuilder();
-        $qb->db->createCommand()->addPrimaryKey($pkeyName, $tableName, 'id, field1')->execute();
-        $tableSchema = $qb->db->getSchema()->getTableSchema($tableName);
-        $this->assertCount(2, $tableSchema->primaryKey);
+    /**
+     * @dataProvider foreignKeysProvider
+     * @param string $sql
+     */
+    public function testAddDropForeignKey($sql, \Closure $builder)
+    {
+        $this->assertSame($this->getConnection(false)->quoteSql($sql), $builder($this->getQueryBuilder(false)));
+    }
 
-        // DROP (2 columns)
-        $qb->db->createCommand()->dropPrimaryKey($pkeyName, $tableName)->execute();
-        $qb = $this->getQueryBuilder(); // resets the schema
-        $tableSchema = $qb->db->getSchema()->getTableSchema($tableName);
-        $this->assertCount(0, $tableSchema->primaryKey);
+    public function indexesProvider()
+    {
+        $tableName = 'T_constraints_2';
+        $name1 = 'CN_constraints_2_single';
+        $name2 = 'CN_constraints_2_multi';
+        return [
+            'drop' => [
+                "DROP INDEX [[$name1]] ON {{{$tableName}}}",
+                function (QueryBuilder $qb) use ($tableName, $name1) {
+                    return $qb->dropIndex($name1, $tableName);
+                },
+            ],
+            'create' => [
+                "CREATE INDEX [[$name1]] ON {{{$tableName}}} ([[C_index_1]])",
+                function (QueryBuilder $qb) use ($tableName, $name1) {
+                    return $qb->createIndex($name1, $tableName, 'C_index_1');
+                },
+            ],
+            'create (2 columns)' => [
+                "CREATE INDEX [[$name2]] ON {{{$tableName}}} ([[C_index_2_1]], [[C_index_2_2]])",
+                function (QueryBuilder $qb) use ($tableName, $name2) {
+                    return $qb->createIndex($name2, $tableName, 'C_index_2_1, C_index_2_2');
+                },
+            ],
+            'create unique' => [
+                "CREATE UNIQUE INDEX [[$name1]] ON {{{$tableName}}} ([[C_index_1]])",
+                function (QueryBuilder $qb) use ($tableName, $name1) {
+                    return $qb->createIndex($name1, $tableName, 'C_index_1', true);
+                },
+            ],
+            'create unique (2 columns)' => [
+                "CREATE UNIQUE INDEX [[$name2]] ON {{{$tableName}}} ([[C_index_2_1]], [[C_index_2_2]])",
+                function (QueryBuilder $qb) use ($tableName, $name2) {
+                    return $qb->createIndex($name2, $tableName, 'C_index_2_1, C_index_2_2', true);
+                },
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider indexesProvider
+     * @param string $sql
+     */
+    public function testCreateDropIndex($sql, \Closure $builder)
+    {
+        $this->assertSame($this->getConnection(false)->quoteSql($sql), $builder($this->getQueryBuilder(false)));
+    }
+
+    public function uniquesProvider()
+    {
+        $tableName1 = 'T_constraints_1';
+        $name1 = 'CN_unique';
+        $tableName2 = 'T_constraints_2';
+        $name2 = 'CN_constraints_2_multi';
+        return [
+            'drop' => [
+                "ALTER TABLE {{{$tableName1}}} DROP CONSTRAINT [[$name1]]",
+                function (QueryBuilder $qb) use ($tableName1, $name1) {
+                    return $qb->dropUnique($name1, $tableName1);
+                },
+            ],
+            'add' => [
+                "ALTER TABLE {{{$tableName1}}} ADD CONSTRAINT [[$name1]] UNIQUE ([[C_unique]])",
+                function (QueryBuilder $qb) use ($tableName1, $name1) {
+                    return $qb->addUnique($name1, $tableName1, 'C_unique');
+                },
+            ],
+            'add (2 columns)' => [
+                "ALTER TABLE {{{$tableName2}}} ADD CONSTRAINT [[$name2]] UNIQUE ([[C_index_2_1]], [[C_index_2_2]])",
+                function (QueryBuilder $qb) use ($tableName2, $name2) {
+                    return $qb->addUnique($name2, $tableName2, 'C_index_2_1, C_index_2_2');
+                },
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider uniquesProvider
+     * @param string $sql
+     */
+    public function testAddDropUnique($sql, \Closure $builder)
+    {
+        $this->assertSame($this->getConnection(false)->quoteSql($sql), $builder($this->getQueryBuilder(false)));
+    }
+
+    public function checksProvider()
+    {
+        $tableName = 'T_constraints_1';
+        $name = 'CN_check';
+        return [
+            'drop' => [
+                "ALTER TABLE {{{$tableName}}} DROP CONSTRAINT [[$name]]",
+                function (QueryBuilder $qb) use ($tableName, $name) {
+                    return $qb->dropCheck($name, $tableName);
+                },
+            ],
+            'add' => [
+                "ALTER TABLE {{{$tableName}}} ADD CONSTRAINT [[$name]] CHECK ([[C_not_null]] > 100)",
+                function (QueryBuilder $qb) use ($tableName, $name) {
+                    return $qb->addCheck($name, $tableName, '[[C_not_null]] > 100');
+                },
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider checksProvider
+     * @param string $sql
+     */
+    public function testAddDropCheck($sql, \Closure $builder)
+    {
+        $this->assertSame($this->getConnection(false)->quoteSql($sql), $builder($this->getQueryBuilder(false)));
+    }
+
+    public function defaultValuesProvider()
+    {
+        $tableName = 'T_constraints_1';
+        $name = 'CN_default';
+        return [
+            'drop' => [
+                "ALTER TABLE {{{$tableName}}} DROP CONSTRAINT [[$name]]",
+                function (QueryBuilder $qb) use ($tableName, $name) {
+                    return $qb->dropDefaultValue($name, $tableName);
+                },
+            ],
+            'add' => [
+                "ALTER TABLE {{{$tableName}}} ADD CONSTRAINT [[$name]] DEFAULT 0 FOR [[C_default]]",
+                function (QueryBuilder $qb) use ($tableName, $name) {
+                    return $qb->addDefaultValue($name, $tableName, 'C_default', 0);
+                },
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider defaultValuesProvider
+     * @param string $sql
+     */
+    public function testAddDropDefaultValue($sql, \Closure $builder)
+    {
+        $this->assertSame($this->getConnection(false)->quoteSql($sql), $builder($this->getQueryBuilder(false)));
     }
 
     public function existsParamsProvider()
@@ -1267,6 +1461,8 @@ abstract class QueryBuilderTest extends DatabaseTestCase
 
     /**
      * @dataProvider existsParamsProvider
+     * @param string $cond
+     * @param string $expectedQuerySql
      */
     public function testBuildWhereExists($cond, $expectedQuerySql)
     {
@@ -1429,7 +1625,7 @@ abstract class QueryBuilderTest extends DatabaseTestCase
     }
 
     /**
-     * https://github.com/yiisoft/yii2/issues/10869
+     * @see https://github.com/yiisoft/yii2/issues/10869
      */
     public function testFromIndexHint()
     {
@@ -1569,11 +1765,110 @@ abstract class QueryBuilderTest extends DatabaseTestCase
         $this->assertEquals([':to' => 4], $params);
     }
 
-//    public function testInsert()
-//    {
-//        // TODO implement
-//    }
-//
+    public function insertProvider()
+    {
+        return [
+            'regular-values' => [
+                'customer',
+                [
+                    'email' => 'test@example.com',
+                    'name' => 'silverfire',
+                    'address' => 'Kyiv {{city}}, Ukraine',
+                    'is_active' => false,
+                    'related_id' => null,
+                ],
+                [],
+                $this->replaceQuotes('INSERT INTO [[customer]] ([[email]], [[name]], [[address]], [[is_active]], [[related_id]]) VALUES (:qp0, :qp1, :qp2, :qp3, :qp4)'),
+                [
+                    ':qp0' => 'test@example.com',
+                    ':qp1' => 'silverfire',
+                    ':qp2' => 'Kyiv {{city}}, Ukraine',
+                    ':qp3' => false,
+                    ':qp4' => null,
+                ],
+            ],
+            'params-and-expressions' => [
+                '{{%type}}',
+                [
+                    '{{%type}}.[[related_id]]' => null,
+                    '[[time]]' => new Expression('now()'),
+                ],
+                [],
+                'INSERT INTO {{%type}} ({{%type}}.[[related_id]], [[time]]) VALUES (:qp0, now())',
+                [
+                    ':qp0' => null,
+                ],
+            ],
+            'carry passed params' => [
+                'customer',
+                [
+                    'email' => 'test@example.com',
+                    'name' => 'sergeymakinen',
+                    'address' => '{{city}}',
+                    'is_active' => false,
+                    'related_id' => null,
+                    'col' => new Expression('CONCAT(:phFoo, :phBar)', [':phFoo' => 'foo']),
+                ],
+                [':phBar' => 'bar'],
+                $this->replaceQuotes('INSERT INTO [[customer]] ([[email]], [[name]], [[address]], [[is_active]], [[related_id]], [[col]]) VALUES (:qp1, :qp2, :qp3, :qp4, :qp5, CONCAT(:phFoo, :phBar))'),
+                [
+                    ':phBar' => 'bar',
+                    ':qp1' => 'test@example.com',
+                    ':qp2' => 'sergeymakinen',
+                    ':qp3' => '{{city}}',
+                    ':qp4' => false,
+                    ':qp5' => null,
+                    ':phFoo' => 'foo',
+                ],
+            ],
+            'carry passed params (query)' => [
+                'customer',
+                (new Query())
+                    ->select([
+                        'email',
+                        'name',
+                        'address',
+                        'is_active',
+                        'related_id',
+                    ])
+                    ->from('customer')
+                    ->where([
+                        'email' => 'test@example.com',
+                        'name' => 'sergeymakinen',
+                        'address' => '{{city}}',
+                        'is_active' => false,
+                        'related_id' => null,
+                        'col' => new Expression('CONCAT(:phFoo, :phBar)', [':phFoo' => 'foo']),
+                    ]),
+                [':phBar' => 'bar'],
+                $this->replaceQuotes('INSERT INTO [[customer]] ([[email]], [[name]], [[address]], [[is_active]], [[related_id]]) SELECT [[email]], [[name]], [[address]], [[is_active]], [[related_id]] FROM [[customer]] WHERE ([[email]]=:qp1) AND ([[name]]=:qp2) AND ([[address]]=:qp3) AND ([[is_active]]=:qp4) AND ([[related_id]] IS NULL) AND ([[col]]=CONCAT(:phFoo, :phBar))'),
+                [
+                    ':phBar' => 'bar',
+                    ':qp1' => 'test@example.com',
+                    ':qp2' => 'sergeymakinen',
+                    ':qp3' => '{{city}}',
+                    ':qp4' => false,
+                    ':phFoo' => 'foo',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider insertProvider
+     * @param string $table
+     * @param array $columns
+     * @param array $params
+     * @param string $expectedSQL
+     * @param array $expectedParams
+     */
+    public function testInsert($table, $columns, $params, $expectedSQL, $expectedParams)
+    {
+        $actualParams = $params;
+        $actualSQL = $this->getQueryBuilder()->insert($table, $columns, $actualParams);
+        $this->assertSame($expectedSQL, $actualSQL);
+        $this->assertSame($expectedParams, $actualParams);
+    }
 
     public function batchInsertProvider()
     {
@@ -1625,6 +1920,10 @@ abstract class QueryBuilderTest extends DatabaseTestCase
 
     /**
      * @dataProvider batchInsertProvider
+     * @param string $table
+     * @param array $columns
+     * @param array $value
+     * @param string $expected
      */
     public function testBatchInsert($table, $columns, $value, $expected)
     {
@@ -1633,16 +1932,75 @@ abstract class QueryBuilderTest extends DatabaseTestCase
         $sql = $queryBuilder->batchInsert($table, $columns, $value);
         $this->assertEquals($expected, $sql);
     }
-//
-//    public function testUpdate()
-//    {
-//        // TODO implement
-//    }
-//
-//    public function testDelete()
-//    {
-//        // TODO implement
-//    }
+
+    public function updateProvider()
+    {
+        return [
+            [
+                'customer',
+                [
+                    'status' => 1,
+                    'updated_at' => new Expression('now()'),
+                ],
+                [
+                    'id' => 100,
+                ],
+                $this->replaceQuotes('UPDATE [[customer]] SET [[status]]=:qp0, [[updated_at]]=now() WHERE [[id]]=:qp1'),
+                [
+                    ':qp0' => 1,
+                    ':qp1' => 100,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider updateProvider
+     * @param string $table
+     * @param array $columns
+     * @param array|string $condition
+     * @param string $expectedSQL
+     * @param array $expectedParams
+     */
+    public function testUpdate($table, $columns, $condition, $expectedSQL, $expectedParams)
+    {
+        $actualParams = [];
+        $actualSQL = $this->getQueryBuilder()->update($table, $columns, $condition, $actualParams);
+        $this->assertSame($expectedSQL, $actualSQL);
+        $this->assertSame($expectedParams, $actualParams);
+    }
+
+    public function deleteProvider()
+    {
+        return [
+            [
+                'user',
+                [
+                    'is_enabled' => false,
+                    'power' => new Expression('WRONG_POWER()'),
+                ],
+                $this->replaceQuotes('DELETE FROM [[user]] WHERE ([[is_enabled]]=:qp0) AND ([[power]]=WRONG_POWER())'),
+                [
+                    ':qp0' => false,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider deleteProvider
+     * @param string $table
+     * @param array|string $condition
+     * @param string $expectedSQL
+     * @param array $expectedParams
+     */
+    public function testDelete($table, $condition, $expectedSQL, $expectedParams)
+    {
+        $actualParams = [];
+        $actualSQL = $this->getQueryBuilder()->delete($table, $condition, $actualParams);
+        $this->assertSame($expectedSQL, $actualSQL);
+        $this->assertSame($expectedParams, $actualParams);
+    }
 
 
     public function testCommentColumn()
@@ -1714,11 +2072,15 @@ abstract class QueryBuilderTest extends DatabaseTestCase
                 $conditions[$i][2][$name] = strtr($conditions[$i][2][$name], $this->likeParameterReplacements);
             }
         }
+
         return $conditions;
     }
 
     /**
      * @dataProvider likeConditionProvider
+     * @param array $condition
+     * @param string $expected
+     * @param array $expectedParams
      */
     public function testBuildLikeCondition($condition, $expected, $expectedParams)
     {

@@ -93,4 +93,36 @@ class CommandTest extends \yiiunit\framework\db\CommandTest
             ['SELECT SUBSTRING(name, :len, 6) FROM {{customer}} WHERE [[email]] = :email'],
         ];
     }
+
+    public function testAddDropDefaultValue()
+    {
+        $db = $this->getConnection(false);
+        $tableName = 'test_def';
+        $name = 'test_def_constraint';
+        /** @var \yii\db\pgsql\Schema $schema */
+        $schema = $db->getSchema();
+
+        if ($schema->getTableSchema($tableName) !== null) {
+            $db->createCommand()->dropTable($tableName)->execute();
+        }
+        $db->createCommand()->createTable($tableName, [
+            'int1' => 'integer',
+        ])->execute();
+
+        $this->assertEmpty($schema->getTableDefaultValues($tableName, true));
+        $db->createCommand()->addDefaultValue($name, $tableName, 'int1', 41)->execute();
+        $this->assertRegExp('/^.*41.*$/', $schema->getTableDefaultValues($tableName, true)[0]->value);
+
+        $db->createCommand()->dropDefaultValue($name, $tableName)->execute();
+        $this->assertEmpty($schema->getTableDefaultValues($tableName, true));
+    }
+
+    public function batchInsertSqlProvider()
+    {
+        $data = parent::batchInsertSqlProvider();
+        $data['issue11242']['expected'] = 'INSERT INTO [type] ([int_col], [float_col], [char_col]) VALUES (NULL, NULL, \'Kyiv {{city}}, Ukraine\')';
+        $data['wrongBehavior']['expected'] = 'INSERT INTO [type] ([int_col], [float_col], [char_col]) VALUES (\'\', \'\', \'Kyiv {{city}}, Ukraine\')';
+
+        return $data;
+    }
 }
