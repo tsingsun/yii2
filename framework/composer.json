@@ -1,5 +1,5 @@
 {
-    "name": "tsingsun/yii2",
+    "name": "yiisoft/yii2",
     "description": "Yii PHP Framework Version 2",
     "keywords": [
         "yii2",
@@ -70,9 +70,6 @@
         "yiisoft/yii2-composer": "~2.0.4",
         "ezyang/htmlpurifier": "~4.6",
         "cebe/markdown": "~1.0.0 | ~1.1.0"
-    },
-    "replace": {
-        "yiisoft/yii2":"self.version"
     },
     "autoload": {
         "psr-4": {
