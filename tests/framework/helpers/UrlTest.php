@@ -24,11 +24,16 @@ class UrlTest extends TestCase
 {
     protected function setUp()
     {
+        if (getenv('TRAVIS') == 'true' && \defined('HHVM_VERSION')) {
+            $this->markTestSkipped('Can not reliably test session-related things with Travis and HHVM.');
+        }
+
         parent::setUp();
         $this->mockApplication([
             'components' => [
                 'request' => [
                     'class' => 'yii\web\Request',
+                    'cookieValidationKey' => '123',
                     'scriptUrl' => '/base/index.php',
                     'hostInfo' => 'http://example.com/',
                     'url' => '/base/index.php&r=site%2Fcurrent&id=42',
