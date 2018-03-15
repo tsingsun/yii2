@@ -1159,12 +1159,19 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
             throw new Exception(get_class($this) . ' does not have a primary key. You should either define a primary key for the corresponding table or override the primaryKey() method.');
         }
         if (!$asArray && count($keys) === 1) {
-            return isset($this->_oldAttributes[$keys[0]]) ? $this->_oldAttributes[$keys[0]] : null;
+            return isset($this->_changeAttributes[$keys[0]])
+                ? $this->_changeAttributes[$keys[0]]
+                : isset($this->_attributes[$keys[0]])
+                    ? $this->_attributes[$keys[0]]
+                    : null;
         }
-
         $values = [];
         foreach ($keys as $name) {
-            $values[$name] = isset($this->_oldAttributes[$name]) ? $this->_oldAttributes[$name] : null;
+            $values[$name] = isset($this->_changeAttributes[$name])
+                ? $this->_changeAttributes[$name]
+                : isset($this->_attributes[$keys[0]])
+                    ? $this->_attributes[$name]
+                    : null;
         }
 
         return $values;
